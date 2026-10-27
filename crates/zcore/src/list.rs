@@ -1,6 +1,6 @@
 use crate::format::Format;
 use crate::fsutil::zip_time;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
@@ -39,21 +39,23 @@ pub fn list(path: &Path, password: Option<&str>) -> Result<Vec<Entry>> {
     list_as(path, fmt, password)
 }
 
-pub fn list_as(path: &Path, fmt: Format, _password: Option<&str>) -> Result<Vec<Entry>> {
+pub fn list_as(path: &Path, fmt: Format, password: Option<&str>) -> Result<Vec<Entry>> {
     match fmt {
-        Format::Zip => list_zip(path),
-        Format::SevenZ => list_7z(path, _password),
+        Format::Zip => list_zip(path, password),
+        Format::SevenZ => list_7z(path, password),
         Format::Rar => list_rar(path),
         f if is_tar_family(f) => list_tar(path, f),
         f => list_single(path, f),
     }
 }
 
-fn list_zip(path: &Path) -> Result<Vec<Entry>> {
+fn list_zip(path: &Path, password: Option<&str>) -> Result<Vec<Entry>> {
     let mut ar = zip::ZipArchive::new(BufReader::new(File::open(path)?)).context("Not a valid ZIP")?;
     let mut out = Vec::with_capacity(ar.len());
+    let mut first_encrypted: Option<usize> = None;
     for i in 0..ar.len() {
-        let f = ar.by_index_raw(i)?;              // raw: lists encrypted entries without a password
+        let f = ar.by_index_raw(i)?;              // raw read of the central directory only
+        if f.encrypted() && !f.is_dir() && first_encrypted.is_none() { first_encrypted = Some(i); }
         out.push(Entry {
             path: f.name().trim_end_matches('/').replace('\\', "/"),
             size: f.size(),
@@ -63,13 +65,26 @@ fn list_zip(path: &Path) -> Result<Vec<Entry>> {
             encrypted: f.encrypted(),
         });
     }
+    // An encrypted archive is never shown (or opened) without the right password.
+    if let Some(i) = first_encrypted {
+        let Some(pw) = password else { bail!("Password required") };
+        let mut f = ar.by_index_decrypt(i, pw.as_bytes()).map_err(|_| anyhow!("Wrong password"))?;
+        let mut probe = [0u8; 16];                // AES is verified on open, classic ZipCrypto only on read
+        let _ = f.read(&mut probe).map_err(|_| anyhow!("Wrong password"))?;
+    }
     Ok(out)
 }
 
 fn list_7z(path: &Path, password: Option<&str>) -> Result<Vec<Entry>> {
     use sevenz_rust::{Password, SevenZReader};
     let pw = password.map(Password::from).unwrap_or_else(Password::empty);
-    let r = SevenZReader::open(path, pw).map_err(|e| anyhow!("7z: {e}"))?;
+    let r = SevenZReader::open(path, pw).map_err(|e| {
+        let m = e.to_string();
+        let l = m.to_lowercase();
+        if l.contains("password") || l.contains("aes") || l.contains("decrypt") {
+            if password.is_some() { anyhow!("Wrong password") } else { anyhow!("Password required") }
+        } else { anyhow!("7z: {m}") }
+    })?;
     Ok(r.archive().files.iter().map(|f| Entry {
         path: f.name().trim_end_matches('/').replace('\\', "/"),
         size: f.size(),

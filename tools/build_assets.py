@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Regenerates every visual asset for Z from code: logo, icons, banners, installer
-images and the subsetted UI font.  Requires: pip install pillow fonttools
+"""Regenerates every visual asset for Z from code: logo, icons, banners
+and the and the subsetted UI font.  Requires: pip install pillow fonttools
 Usage: python tools/build_assets.py [path/to/folder/containing/Poppins-*.ttf]
 The logo mark is flat fills only: no strokes, outlines, gradients or text."""
 import sys, os, io, struct
@@ -166,10 +166,6 @@ def main():
     save_ico(A("assets/icons/z-archive.ico"), file_icon, (16,24,32,48,64,128,256))
     wide_banner(1280, 640).save(A("assets/banners/social-1280x640.png"), optimize=True)
     wide_banner(1920, 480).save(A("assets/banners/readme-1920x480.png"), optimize=True)
-    for (w, h) in [(164,314),(192,386),(246,459),(273,514),(328,628),(355,669)]:
-        wizard_large(w, h).save(A(f"installer/images/wizard-{w}x{h}.bmp"), "BMP")
-    for (w, h) in [(55,55),(64,68),(83,80),(92,97),(110,106),(119,123),(138,140)]:
-        wizard_small(w, h).save(A(f"installer/images/small-{w}x{h}.bmp"), "BMP")
     src = sys.argv[1] if len(sys.argv) > 1 else "/usr/share/fonts/truetype/google-fonts"
     if os.path.exists(os.path.join(src, "Poppins-Regular.ttf")): build_font(src)
     else: print("font subset skipped (Poppins sources not found); existing assets/font kept")

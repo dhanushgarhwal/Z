@@ -1,5 +1,6 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 mod app;
+mod ui;
 
 use app::{Startup, ZApp};
 use std::sync::Arc;
@@ -18,7 +19,8 @@ fn main() -> eframe::Result<()> {
         Err(e) => Startup::Error(e.to_string()),
     };
     let job_mode = matches!(startup, Startup::Job(_));
-    let (w, h) = if job_mode { (460.0, 210.0) } else { (1040.0, 660.0) };
+    let add_dialog = matches!(startup, Startup::Job(z::jobs::Job::Add { dialog: true, .. }));
+    let (w, h) = if add_dialog { (480.0, 400.0) } else if job_mode { (460.0, 210.0) } else { (1040.0, 660.0) };
     let rgba = include_bytes!("../../../assets/icons/z-64.rgba").to_vec();
     let mut vp = eframe::egui::ViewportBuilder::default()
         .with_inner_size([w, h]).with_title("Z").with_drag_and_drop(true)

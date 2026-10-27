@@ -167,6 +167,7 @@ fn sevenz_create(tmp: &Path, items: &[Item], o: &CreateOpts, p: &Progress) -> Re
         Some(pw) => w.set_content_methods(vec![AesEncoderOptions::new(Password::from(pw.as_str())).into(), lz.into()]),
         None => w.set_content_methods(vec![lz.into()]),
     };
+    if o.password.is_some() { w.set_encrypt_header(true); }     // file names are encrypted too
     for it in items {
         if p.cancelled() { break; }
         p.set_current(&it.name);

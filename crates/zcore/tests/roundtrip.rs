@@ -91,3 +91,19 @@ fn roundtrip(fmt: Format, pw: Option<&str>) {
     assert!(r.skipped.len() >= 3);
     let _ = fs::remove_dir_all(&d);
 }
+
+#[test] fn encrypted_zip_is_unreadable_without_the_password() {
+    let d = tmp("pwreq"); sample(&d);
+    let arc = d.join("p.zip");
+    let opts = CreateOpts { format: Format::Zip, level: Level::Store, password: Some("s3cret".into()), threads: 0 };
+    zcore::create(&arc, &[d.join("src")], &opts, &Progress::new()).unwrap();
+    let raw = fs::read(&arc).unwrap();
+    let needle = b"hello z hello z";
+    assert!(!raw.windows(needle.len()).any(|w| w == needle), "plain text found inside an encrypted archive");
+    assert!(zcore::list(&arc, None).is_err());
+    let out = d.join("out");
+    assert!(zcore::extract(&arc, &out, &ExtractOpts::default(), &Progress::new()).is_err());
+    assert!(!out.join("src/a.txt").exists());
+    assert!(zcore::list(&arc, Some("s3cret")).is_ok());
+    let _ = fs::remove_dir_all(&d);
+}

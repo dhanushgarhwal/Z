@@ -8,16 +8,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
-      - run: cargo build --release --workspace
-      - run: python tools/gen_registry.py
-      - name: Installer (Inno Setup is preinstalled on windows-latest)
-        run: iscc /DVersion=0.1.0 installer\z.iss
-      - name: Portable zip
+      - run: cargo build --release -p z
+      - name: Z Setup (embeds the release binaries built above)
+        run: cargo build --release -p setup
+      - name: Package
         shell: pwsh
         run: |
+          New-Item -ItemType Directory dist -Force | Out-Null
+          Copy-Item target\release\Z-Setup.exe dist\Z-Setup-1.0.0.exe
           New-Item -ItemType Directory dist\Z-portable -Force | Out-Null
           Copy-Item target\release\Z.exe, target\release\zc.exe, LICENSE dist\Z-portable
-          Compress-Archive dist\Z-portable\* dist\Z-portable-0.1.0.zip
+          Compress-Archive dist\Z-portable\* dist\Z-portable-1.0.0.zip
       - uses: actions/upload-artifact@v4
         with: { name: Z-windows, path: dist/*.exe, if-no-files-found: error }
       - uses: actions/upload-artifact@v4

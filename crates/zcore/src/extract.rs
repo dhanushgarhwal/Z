@@ -81,13 +81,18 @@ pub fn extract(archive: &Path, dest: &Path, opts: &ExtractOpts, p: &Progress) ->
 fn extract_zip(path: &Path, dest: &Path, opts: &ExtractOpts, p: &Progress) -> Result<Report> {
     // One pass over the central directory to choose entries and balance work.
     let mut jobs: Vec<(usize, u64)> = Vec::new();
+    let mut needs_password = false;
     {
         let mut ar = zip::ZipArchive::new(BufReader::new(File::open(path)?)).context("Not a valid ZIP")?;
         for i in 0..ar.len() {
             let f = ar.by_index_raw(i)?;
-            if selected(&opts.only, f.name()) { jobs.push((i, f.size())); }
+            if selected(&opts.only, f.name()) {
+                if f.encrypted() && !f.is_dir() { needs_password = true; }
+                jobs.push((i, f.size()));
+            }
         }
     }
+    if needs_password && opts.password.is_none() { bail!("Password required"); }
     let total: u64 = jobs.iter().map(|j| j.1).sum();
     p.set_total(total);
     let auto = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(2).min(8);
@@ -127,7 +132,7 @@ fn zip_worker(path: &Path, idxs: &[usize], dest: &Path, opts: &ExtractOpts, p: &
     for &i in idxs {
         if p.cancelled() { break; }
         let mut f = match &opts.password {
-            Some(pw) => ar.by_index_decrypt(i, pw.as_bytes()).map_err(|e| anyhow!("{e} (wrong password?)"))?,
+            Some(pw) => ar.by_index_decrypt(i, pw.as_bytes()).map_err(|_| anyhow!("Wrong password"))?,
             None => ar.by_index(i).map_err(|e| anyhow!("{e}"))?,
         };
         let name = f.name().to_string();

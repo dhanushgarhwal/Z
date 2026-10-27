@@ -1,9 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/zcore", "crates/z"]
+members = ["crates/zcore", "crates/z", "crates/setup"]
+# `cargo build` builds the app; Z Setup embeds the release binaries, so it is built on its own: cargo build --release -p setup
+default-members = ["crates/zcore", "crates/z"]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 license = "MIT"
 rust-version = "1.80"

@@ -56,7 +56,7 @@ Formats are detected from file contents first and from the name second, so a ren
 
 Download **`Z-Setup-<version>.exe`** (installer) or **`Z-portable-<version>.zip`** (no installation) from the Releases page.
 
-The installer is per-user by default and offers an all-users install on request. During setup you can choose to:
+Z Setup installs per user by default and offers an all-users install on request. During setup you can choose to:
 
 - install the `zc` command-line tool and add it to `PATH`
 - add **Extract** and **Add to archive** entries to the Explorer right-click menu
@@ -110,26 +110,25 @@ zc t *.7z
 
 ## Building from source
 
-Requirements: the stable Rust toolchain (MSVC on Windows) and, for the installer, [Inno Setup 6](https://jrsoftware.org/isinfo.php).
+Requirements: the stable Rust toolchain (MSVC on Windows).
 
 ```text
 cargo test --workspace
 cargo build --release
-iscc /DVersion=0.1.0 installer\z.iss
+cargo build --release -p setup      # Z Setup embeds the binaries built above
 ```
 
 | Output | Location |
 |---|---|
 | Desktop app | `target\release\Z.exe` |
 | Command-line tool | `target\release\zc.exe` |
-| Installer | `dist\Z-Setup-<version>.exe` |
+| Installer | `target\release\Z-Setup.exe` |
 
 Optional steps:
 
 ```text
 cargo build --release --features rar     # RAR browsing and extraction
-python tools/build_assets.py             # regenerate icons, banners, installer artwork (pillow, numpy, fonttools)
-python tools/gen_registry.py             # regenerate Explorer menu and file-association entries
+python tools/build_assets.py             # regenerate icons and banners (pillow, numpy, fonttools)
 ```
 
 ### Project layout
@@ -138,7 +137,7 @@ python tools/gen_registry.py             # regenerate Explorer menu and file-ass
 |---|---|
 | `crates/zcore` | Archive engine: detection, listing, extraction, creation, integrity tests |
 | `crates/z` | Desktop app (`Z.exe`) and command-line tool (`zc.exe`) |
-| `installer` | Inno Setup script and wizard artwork |
+| `crates/setup` | Z Setup: installer and uninstaller |
 | `assets` | Logo, icons, banners and the UI font |
 | `tools` | Asset and registry generators |
 
